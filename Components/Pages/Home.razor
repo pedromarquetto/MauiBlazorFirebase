@@ -1,0 +1,124 @@
+﻿@page "/"
+@using Firebase.Auth
+@using MauiBlazorFirebase.Models;
+
+<div class="container mt-5">
+    <div class="card shadow p-4">
+
+        @if (authUser == null)
+        {
+            <div class="mb-3">
+                <label class="form-label">E-mail:</label>
+                <input @bind="email" type="email" class="form-control" placeholder="E-mail" />
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label">Name:</label>
+                <input @bind="displayName" type="text" class="form-control" placeholder="Name" />
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label">Password:</label>
+                <input @bind="password" type="password" class="form-control" placeholder="Password" />
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label">Confirm Password:</label>
+                <input @bind="confirmpassword" type="password" class="form-control" placeholder="Confirm Password" />
+            </div>
+
+            <div class="form-check mb-3">
+                <input @bind="isRegister" type="checkbox" class="form-check-input" id="isLoginCheck" />
+                <label class="form-check-label" for="isLoginCheck">Register</label>
+            </div>
+
+            <button class="btn btn-primary w-100" @onclick="SingInOrRegister">
+                Submit
+            </button>
+        }
+        else
+        {
+
+            <h1 class="text-center mb-4">Welcome @authUser?.DisplayName</h1>
+
+            <label class="form-label">@authUser?.Email</label>
+
+            <label class="form-label">@authUser?.Uid</label>
+
+            <button class="btn btn-primary w-100" @onclick="Logout">
+                Logout
+            </button>
+        }
+    </div>
+</div>
+
+@code {
+
+    #region Properties
+
+    private string email { get; set; } = "";
+    private string displayName { get; set; } = "";
+    private string password { get; set; } = "";
+    private string confirmpassword { get; set; } = "";
+    private bool isRegister { get; set; } = false;
+    private AppUserModel? authUser { get; set; }
+
+    #endregion
+
+    #region Methods
+
+    protected async override Task OnInitializedAsync()
+    {
+        authUser = await FirebaseService.GetPreferences();
+    }
+
+    public void Logout()
+    {
+        FirebaseService.Logout();
+        authUser = null;
+        StateHasChanged();
+    }
+
+    public async void SingInOrRegister()
+    {
+        if (string.IsNullOrEmpty(email) || string.IsNullOrEmpty(displayName) || string.IsNullOrEmpty(password))
+        {
+            Application.Current?.Windows[0]?.Page?.DisplayAlert("Warning", "Please fill all the fields before submit", "Ok");
+            return;
+        }
+
+        if (!password.TrimEnd().Equals(confirmpassword.TrimEnd(), StringComparison.OrdinalIgnoreCase))
+        {
+            Application.Current?.Windows[0]?.Page?.DisplayAlert("Login Failed", "Passwords does not match", "Ok");
+            return;
+        }
+
+        if (!isRegister)
+        {
+            authUser = await FirebaseService.Login(email.TrimEnd(), password.TrimEnd());
+        }
+        else
+        {
+            authUser = await FirebaseService.Create(email.TrimEnd(), password.TrimEnd(), displayName.TrimEnd());
+        }
+
+        var message = authUser != null ? $"Hi {authUser.DisplayName}, you are now logged in with id: {authUser.Uid} and E-mail: " +
+            $"{authUser.Email}" : "Failed to Login/Register";
+
+        Application.Current?.Windows[0]?.Page?.DisplayAlert(authUser != null ? "Success" : "Failed", message, "Ok");
+
+        ClearFields();
+
+        StateHasChanged();
+    }
+    public void ClearFields()
+    {
+        email = "";
+        displayName = "";
+        password = "";
+        confirmpassword = "";
+        isRegister = false;
+    }
+
+    #endregion
+}
